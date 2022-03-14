@@ -14,6 +14,7 @@ extern "C" {
 #include <stdio.h>
 #include "stb_image_write.h"
 #include "stb_image.h"
+#include "stdint.h"
 
 #ifndef QOI_MALLOC
 #define QOI_MALLOC(sz) malloc(sz)
@@ -34,6 +35,7 @@ extern "C" {
 
 #define QOI_COLOR_HASH(C) (C.rgba.r*3 + C.rgba.g*5 + C.rgba.b*7 + C.rgba.a*11)
 #define QOI_COLOR_HASH_FAST(C) (C.rgba.r*3 + C.rgba.g*5 + C.rgba.b*7)
+#define QOI_COLOR_HASH_565(C) (C.r*3 + C.g*5 + C.b*7)
 #define QOI_MAGIC \
     (((unsigned int)'q') << 24 | ((unsigned int)'o') << 16 | \
      ((unsigned int)'i') <<  8 | ((unsigned int)'f'))
@@ -53,6 +55,19 @@ typedef union {
 } qoi_rgba_t;
 
 
+typedef union {
+    struct {
+        uint16_t r: 5;
+        uint16_t g: 6;
+        uint16_t b: 5;
+    };
+    struct {
+        uint16_t msb: 8;
+        uint16_t lsb: 8;
+    };
+    uint16_t full;
+} rgb565_t;
+
 static const unsigned char qoi_padding[8] = {0, 0, 0, 0, 0, 0, 0, 1};
 
 static void qoi_write_32(unsigned char *bytes, int *p, unsigned int v) {
@@ -68,6 +83,15 @@ static unsigned int qoi_read_32(const unsigned char *bytes, int *p) {
     unsigned int c = bytes[(*p)++];
     unsigned int d = bytes[(*p)++];
     return a << 24 | b << 16 | c << 8 | d;
+}
+
+rgb565_t to_rgb565(qoi_rgba_t rgb) {
+    rgb565_t ret;
+    ret.r = rgb.rgba.r;
+    ret.g = rgb.rgba.g;
+    ret.b = rgb.rgba.b;
+    return ret;
+//    return __builtin_bswap16(ret);
 }
 
 void *qoi_encode(const void *data, const qoi_desc *desc, int *out_len) {
@@ -299,7 +323,6 @@ void *qoi_decode(const void *data, int size, qoi_desc *desc, int channels) {
 
     return pixels;
 }
-
 #ifndef QOI_NO_STDIO
 
 #include <stdio.h>
@@ -357,27 +380,25 @@ void *qoi_read(const char *filename, qoi_desc *desc, int channels) {
     return pixels;
 }
 
-void *mqoi_frame_encode(const void *data, const qoi_desc *desc, unsigned int *out_len) {
-    int i, max_size, p, run;
+void *mqoi_frame_encode(const void *data, const mqoi_desc *desc, unsigned int *out_len) {
+    int max_size, p, run;
     int px_len, px_end, px_pos, channels;
     unsigned char *bytes;
     const unsigned char *pixels;
-    qoi_rgba_t index[64];
-    qoi_rgba_t px, px_prev;
+    rgb565_t index[64];
+    rgb565_t px565, px565_prev;
 
     if (
             data == NULL || out_len == NULL || desc == NULL ||
             desc->width == 0 || desc->height == 0 ||
-            desc->channels < 3 || desc->channels > 4 ||
-            desc->colorspace > 1 ||
             desc->height >= QOI_PIXELS_MAX / desc->width
             ) {
         return NULL;
     }
 
     max_size =
-            desc->width * desc->height * (desc->channels + 1) +
-            QOI_HEADER_SIZE + sizeof(qoi_padding);
+            desc->width * desc->height * (3 + 1) +
+            QOI_HEADER_SIZE;
 
     p = 0;
     bytes = (unsigned char *) QOI_MALLOC(max_size);
@@ -385,39 +406,27 @@ void *mqoi_frame_encode(const void *data, const qoi_desc *desc, unsigned int *ou
         return NULL;
     }
 
-//    qoi_write_32(bytes, &p, QOI_MAGIC);
-//    qoi_write_32(bytes, &p, desc->width);
-//    qoi_write_32(bytes, &p, desc->height);
-//    bytes[p++] = desc->channels;
-//    bytes[p++] = desc->colorspace;
-
 
     pixels = (const unsigned char *) data;
 
     QOI_ZEROARR(index);
 
     run = 0;
-    px_prev.rgba.r = 0;
-    px_prev.rgba.g = 0;
-    px_prev.rgba.b = 0;
-    px_prev.rgba.a = 255;
-    px = px_prev;
+    px565_prev.r = 0;
+    px565_prev.g = 0;
+    px565_prev.b = 0;
+    px565 = px565_prev;
 
-    px_len = desc->width * desc->height * desc->channels;
-    px_end = px_len - desc->channels;
-    channels = desc->channels;
-    printf("ch:%d\n", channels);
+    px_len = desc->width * desc->height * 3;
+    px_end = px_len - 3;
+    channels = 3;
 
     for (px_pos = 0; px_pos < px_len; px_pos += channels) {
-        if (channels == 4) {
-            px = *(qoi_rgba_t *) (pixels + px_pos);
-        } else {
-            px.rgba.r = pixels[px_pos + 0];
-            px.rgba.g = pixels[px_pos + 1];
-            px.rgba.b = pixels[px_pos + 2];
-        }
+        px565.r = pixels[px_pos + 0];
+        px565.g = pixels[px_pos + 1];
+        px565.b = pixels[px_pos + 2];
 
-        if (px.v == px_prev.v) {
+        if (px565.full == px565_prev.full) {
             run++;
             if (run == 62 || px_pos == px_end) {
                 bytes[p++] = QOI_OP_RUN | (run - 1);
@@ -431,57 +440,39 @@ void *mqoi_frame_encode(const void *data, const qoi_desc *desc, unsigned int *ou
                 run = 0;
             }
 
-            index_pos = QOI_COLOR_HASH(px) % 64;
+            index_pos = QOI_COLOR_HASH_565(px565) % 64;
 
-            if (index[index_pos].v == px.v) {
+            if (index[index_pos].full == px565.full) {
                 bytes[p++] = QOI_OP_INDEX | index_pos;
             } else {
-                index[index_pos] = px;
+                index[index_pos] = px565;
+                signed char vr = (signed char) (px565.r - px565_prev.r);
+                signed char vg = (signed char) (px565.g - px565_prev.g);
+                signed char vb = (signed char) (px565.b - px565_prev.b);
 
-                if (px.rgba.a == px_prev.rgba.a) {
-                    signed char vr = px.rgba.r - px_prev.rgba.r;
-                    signed char vg = px.rgba.g - px_prev.rgba.g;
-                    signed char vb = px.rgba.b - px_prev.rgba.b;
+                signed char vg_r = (signed char) (vr - vg);
+                signed char vg_b = (signed char) (vb - vg);
 
-                    signed char vg_r = vr - vg;
-                    signed char vg_b = vb - vg;
-
-                    if (
-                            vr > -3 && vr < 2 &&
-                            vg > -3 && vg < 2 &&
-                            vb > -3 && vb < 2
-                            ) {
-                        bytes[p++] = QOI_OP_DIFF | (vr + 2) << 4 | (vg + 2) << 2 | (vb + 2);
-                    } else if (
-                            vg_r > -9 && vg_r < 8 &&
-                            vg > -33 && vg < 32 &&
-                            vg_b > -9 && vg_b < 8
-                            ) {
-                        bytes[p++] = QOI_OP_LUMA | (vg + 32);
-                        bytes[p++] = (vg_r + 8) << 4 | (vg_b + 8);
-                    } else {
-                        bytes[p++] = QOI_OP_RGB;
-                        bytes[p++] = px.rgba.r;
-                        bytes[p++] = px.rgba.g;
-                        bytes[p++] = px.rgba.b;
-                    }
+                if (
+                        vr > -3 && vr < 2 &&
+                        vg > -3 && vg < 2 &&
+                        vb > -3 && vb < 2
+                        ) {
+                    bytes[p++] = QOI_OP_DIFF | (vr + 2) << 4 | (vg + 2) << 2 | (vb + 2);
+                } else if (
+                        vg_r > -9 && vg_r < 8 &&
+                        vg_b > -9 && vg_b < 8
+                        ) {
+                    bytes[p++] = QOI_OP_LUMA | (vg + 32);
+                    bytes[p++] = (vg_r + 8) << 4 | (vg_b + 8);
                 } else {
-                    bytes[p++] = QOI_OP_RGBA;
-                    bytes[p++] = px.rgba.r;
-                    bytes[p++] = px.rgba.g;
-                    bytes[p++] = px.rgba.b;
-                    bytes[p++] = px.rgba.a;
+                    bytes[p++] = QOI_OP_RGB;
+                    bytes[p++] = px565.msb;
+                    bytes[p++] = px565.lsb;
                 }
             }
         }
-        px_prev = px;
-        if (px_pos == 292360) {
-            printf("%d | %d | %d |%d\n", px.rgba.a, px.rgba.r, px.rgba.g, px.rgba.b);
-        }
-    }
-
-    for (i = 0; i < (int) sizeof(qoi_padding); i++) {
-        bytes[p++] = qoi_padding[i];
+        px565_prev = px565;
     }
 
     *out_len = p;
@@ -496,7 +487,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
         return;
     }
     struct dirent *file;
-    qoi_desc desc;
+    mqoi_desc desc;
     int header_written = 0;
     for (int i = 0; (file = readdir(dir)) != NULL; i++) {
         char *file_path = malloc(strlen(file->d_name) + strlen(dir_path) + 8);
@@ -525,8 +516,6 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
             fwrite(header, 1, QOI_HEADER_SIZE, f);
             desc.width = w;
             desc.height = h;
-            desc.channels = 3;
-            desc.colorspace = 0;
             printf("w:%d | h:%d\n", w, h);
             header_written = 1;
         }

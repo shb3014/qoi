@@ -254,15 +254,20 @@ how chunks are en-/decoded. */
 #define QOI_LINEAR 1
 
 typedef struct {
-	unsigned int width;
-	unsigned int height;
-	unsigned char channels;
-	unsigned char colorspace;
+    unsigned int width;
+    unsigned int height;
+    unsigned char channels;
+    unsigned char colorspace;
 } qoi_desc;
 
-typedef struct{
+typedef struct {
+    unsigned int width;
+    unsigned int height;
+} mqoi_desc;
+
+typedef struct {
     unsigned int size;
-}mqoi_frame_desc;
+} mqoi_frame_desc;
 
 #ifndef QOI_NO_STDIO
 
@@ -311,9 +316,10 @@ is filled with the description from the file header.
 The returned pixel data should be free()d after use. */
 
 void *qoi_decode(const void *data, int size, qoi_desc *desc, int channels);
+void *mqoi_decode(const void *data, int size, qoi_desc *desc, int channels);
 
 
-void mqoi_encode(const char *dir_path, const char* target_path);
+void mqoi_encode(const char *dir_path, const char *target_path);
 
 #ifdef __cplusplus
 }
