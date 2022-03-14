@@ -41,6 +41,7 @@ extern "C" {
     (((unsigned int)'m') << 24 | ((unsigned int)'q') << 16 | \
      ((unsigned int)'o') <<  8 | ((unsigned int)'i'))
 #define QOI_HEADER_SIZE 14
+#define MQOI_HEADER_SIZE 4
 
 /* 2GB is the max file size that this implementation can safely handle. We guard
 against anything larger than that, assuming the worst case with 5 bytes per
@@ -76,6 +77,11 @@ static void qoi_write_32(unsigned char *bytes, int *p, unsigned int v) {
     bytes[(*p)++] = (0x00ff0000 & v) >> 16;
     bytes[(*p)++] = (0x0000ff00 & v) >> 8;
     bytes[(*p)++] = (0x000000ff & v);
+}
+
+static void qoi_write_16(unsigned char *bytes, int *p, uint16_t v) {
+    bytes[(*p)++] = (0xff00 & v) >> 8;
+    bytes[(*p)++] = (0x00ff & v);
 }
 
 static unsigned int qoi_read_32(const unsigned char *bytes, int *p) {
@@ -400,7 +406,7 @@ void *mqoi_frame_encode(const void *data, const mqoi_desc *desc, unsigned int *o
 
     max_size =
             desc->width * desc->height * (3 + 1) +
-            QOI_HEADER_SIZE;
+            MQOI_HEADER_SIZE;
 
     p = 0;
     bytes = (unsigned char *) QOI_MALLOC(max_size);
@@ -508,14 +514,14 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
 
         if (!header_written) {
             /* write header */
-            unsigned char header[QOI_HEADER_SIZE];
+            unsigned char header[MQOI_HEADER_SIZE];
             int p = 0;
-            qoi_write_32(header, &p, QOI_MAGIC);
-            qoi_write_32(header, &p, w);
-            qoi_write_32(header, &p, h);
-            header[p++] = 3;
-            header[p++] = 0;
-            fwrite(header, 1, QOI_HEADER_SIZE, f);
+//            qoi_write_32(header, &p, QOI_MAGIC);
+            qoi_write_16(header, &p, w);
+            qoi_write_16(header, &p, h);
+//            header[p++] = 3;
+//            header[p++] = 0;
+            fwrite(header, 1, MQOI_HEADER_SIZE, f);
             desc.width = w;
             desc.height = h;
             printf("w:%d | h:%d\n", w, h);
