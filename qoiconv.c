@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
 
 		// Force all odd encodings to be RGBA
 		if(channels != 3) {
-			channels = 4;
+			channels = 3;
 		}
 
 		pixels = (void *)stbi_load(argv[1], &w, &h, NULL, channels);
