@@ -35,10 +35,11 @@ extern "C" {
 
 #define QOI_COLOR_HASH(C) (C.rgba.r*3 + C.rgba.g*5 + C.rgba.b*7 + C.rgba.a*11)
 #define QOI_COLOR_HASH_FAST(C) (C.rgba.r*3 + C.rgba.g*5 + C.rgba.b*7)
+# define COLOR_MAKE16(r8, g8, b8) {{(uint8_t)((b8 >> 3) & 0x1FU), (uint8_t)((g8 >> 2) & 0x3FU), (uint8_t)((r8 >> 3) & 0x1FU)}}
 #define QOI_COLOR_HASH_565(C) (C.r*3 + C.g*5 + C.b*7)
 #define QOI_MAGIC \
-    (((unsigned int)'q') << 24 | ((unsigned int)'o') << 16 | \
-     ((unsigned int)'i') <<  8 | ((unsigned int)'f'))
+    (((unsigned int)'m') << 24 | ((unsigned int)'q') << 16 | \
+     ((unsigned int)'o') <<  8 | ((unsigned int)'i'))
 #define QOI_HEADER_SIZE 14
 
 /* 2GB is the max file size that this implementation can safely handle. We guard
@@ -323,6 +324,7 @@ void *qoi_decode(const void *data, int size, qoi_desc *desc, int channels) {
 
     return pixels;
 }
+
 #ifndef QOI_NO_STDIO
 
 #include <stdio.h>
@@ -422,9 +424,10 @@ void *mqoi_frame_encode(const void *data, const mqoi_desc *desc, unsigned int *o
     channels = 3;
 
     for (px_pos = 0; px_pos < px_len; px_pos += channels) {
-        px565.r = pixels[px_pos + 0];
-        px565.g = pixels[px_pos + 1];
-        px565.b = pixels[px_pos + 2];
+//        px565.r = pixels[px_pos + 0];
+//        px565.g = pixels[px_pos + 1];
+//        px565.b = pixels[px_pos + 2];
+        px565 = (rgb565_t) COLOR_MAKE16(pixels[px_pos + 0], pixels[px_pos + 1], pixels[px_pos + 2]);
 
         if (px565.full == px565_prev.full) {
             run++;
@@ -495,7 +498,6 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
         if (strcmp(file->d_name + strlen(file->d_name) - 4, ".png") != 0) {
             continue;
         }
-        printf("converting %s\n", file_path);
 
 
         int w, h;
@@ -529,6 +531,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
         fwrite(encoded, 1, size, f);
         free(pixels);
         QOI_FREE(encoded);
+        printf("converted %s with size %d\n", file_path, size);
     }
     fclose(f);
 }
