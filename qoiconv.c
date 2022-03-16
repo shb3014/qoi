@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 	int w, h, channels;
 	if (STR_ENDS_WITH(argv[1], ".png")) {
 		if(!stbi_info(argv[1], &w, &h, &channels)) {
-			printf("Couldn't read header %s\n", argv[1]);
+//			printf("Couldn't read header %s\n", argv[1]);
 			exit(1);
 		}
 
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (pixels == NULL) {
-		printf("Couldn't load/decode %s\n", argv[1]);
+//		printf("Couldn't load/decode %s\n", argv[1]);
 		exit(1);
 	}
 
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (!encoded) {
-		printf("Couldn't write/encode %s\n", argv[2]);
+//		printf("Couldn't write/encode %s\n", argv[2]);
 		exit(1);
 	}
 

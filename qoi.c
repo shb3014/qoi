@@ -150,7 +150,7 @@ void *qoi_encode(const void *data, const qoi_desc *desc, int *out_len) {
     px_len = desc->width * desc->height * desc->channels;
     px_end = px_len - desc->channels;
     channels = desc->channels;
-    printf("ch:%d\n", channels);
+//    printf("ch:%d\n", channels);
 
     for (px_pos = 0; px_pos < px_len; px_pos += channels) {
         if (channels == 4) {
@@ -220,7 +220,7 @@ void *qoi_encode(const void *data, const qoi_desc *desc, int *out_len) {
         }
         px_prev = px;
         if (px_pos == 292360) {
-            printf("%d | %d | %d |%d\n", px.rgba.a, px.rgba.r, px.rgba.g, px.rgba.b);
+//            printf("%d | %d | %d |%d\n", px.rgba.a, px.rgba.r, px.rgba.g, px.rgba.b);
         }
     }
 
@@ -492,7 +492,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
     FILE *f = fopen(target_path, "wb");
     DIR *dir = opendir(dir_path);
     if (!dir) {
-        printf("invalid dir %s\n", dir_path);
+//        printf("invalid dir %s\n", dir_path);
         return;
     }
     struct dirent *file;
@@ -524,7 +524,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
             fwrite(header, 1, MQOI_HEADER_SIZE, f);
             desc.width = w;
             desc.height = h;
-            printf("w:%d | h:%d\n", w, h);
+//            printf("w:%d | h:%d\n", w, h);
             header_written = 1;
         }
 
@@ -537,7 +537,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
         fwrite(encoded, 1, size, f);
         free(pixels);
         QOI_FREE(encoded);
-        printf("converted %s with size %d\n", file_path, size);
+//        printf("converted %s with size %d\n", file_path, size);
     }
     fclose(f);
 }

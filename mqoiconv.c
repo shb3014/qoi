@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 //            .height = 240,
 //            .colorspace= QOI_SRGB
 //    };
-    printf("converting %s to %s\n",argv[1], argv[2]);
+//    printf("converting %s to %s\n",argv[1], argv[2]);
     mqoi_encode(argv[1], argv[2]);
     return 0;
 }
