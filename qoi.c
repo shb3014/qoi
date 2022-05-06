@@ -425,15 +425,26 @@ void *mqoi_frame_encode(const void *data, const mqoi_desc *desc, unsigned int *o
     px565_prev.b = 0;
     px565 = px565_prev;
 
-    px_len = desc->width * desc->height * 3;
-    px_end = px_len - 3;
-    channels = 3;
+    channels = 4;
+    px_len = desc->width * desc->height * channels;
+    px_end = px_len - channels;
 
     for (px_pos = 0; px_pos < px_len; px_pos += channels) {
-//        px565.r = pixels[px_pos + 0];
-//        px565.g = pixels[px_pos + 1];
-//        px565.b = pixels[px_pos + 2];
-        px565 = (rgb565_t) COLOR_MAKE16(pixels[px_pos + 0], pixels[px_pos + 1], pixels[px_pos + 2]);
+        if (pixels[px_pos + 3] != 255) {
+/*          Target.R = ((1 - Source.A) * BGColor.R) + (Source.A * Source.R)
+            Target.G = ((1 - Source.A) * BGColor.G) + (Source.A * Source.G)
+            Target.B = ((1 - Source.A) * BGColor.B) + (Source.A * Source.B)*/
+            unsigned char r = pixels[px_pos + 0];
+            unsigned char g = pixels[px_pos + 1];
+            unsigned char b = pixels[px_pos + 2];
+            unsigned char a = pixels[px_pos + 3];
+            r = (unsigned char) ((double) a / 255 * (double) r);
+            g = (unsigned char) ((double) a / 255 * (double) g);
+            b = (unsigned char) ((double) a / 255 * (double) b);
+            px565 = (rgb565_t) COLOR_MAKE16(r, g, b);
+        } else {
+            px565 = (rgb565_t) COLOR_MAKE16(pixels[px_pos + 0], pixels[px_pos + 1], pixels[px_pos + 2]);
+        }
 
         if (px565.full == px565_prev.full) {
             run++;
@@ -510,7 +521,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
         unsigned int size;
         void *pixels = NULL;
         void *encoded;
-        pixels = (void *) stbi_load(file_path, &w, &h, NULL, 3);
+        pixels = (void *) stbi_load(file_path, &w, &h, NULL, 4);
 
         if (!header_written) {
             /* write header */
