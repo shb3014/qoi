@@ -512,6 +512,7 @@ void mqoi_encode(const char *dir_path, const char *target_path) {
     for (int i = 0; (file = readdir(dir)) != NULL; i++) {
         char *file_path = malloc(strlen(file->d_name) + strlen(dir_path) + 8);
         sprintf(file_path, "%s/%s", dir_path, file->d_name);
+        printf("converting %s\n",file_path);
         if (strcmp(file->d_name + strlen(file->d_name) - 4, ".png") != 0) {
             continue;
         }

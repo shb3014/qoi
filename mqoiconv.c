@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
 //            .colorspace= QOI_SRGB
 //    };
 //    printf("converting %s to %s\n",argv[1], argv[2]);
+    printf("start to convert to mqoi %s | %s\n",argv[1],argv[2]);
     mqoi_encode(argv[1], argv[2]);
     return 0;
 }
